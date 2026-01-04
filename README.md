@@ -10,12 +10,19 @@ In today's e-commerce market, consumers often face "choice paralysis" due to sca
 
 **Real-time Price Transparency:** Scrapes and compares prices across platforms to ensure users find the lowest cost.
 * 
+
+
 **Personalized Suggestions:** Learns user preferences and budget to offer tailored product recommendations
 * 
+
+
 **Granular Accuracy:** Utilizes an Intent Parser to avoid generic search results and focus on specific user needs.
 * 
+
+
 **Structured Advice:** Converts messy web data into clean, readable shopping advice through specialized extraction agents.
 ---
+
 
 ## 🛠️ Technology Stack
 
