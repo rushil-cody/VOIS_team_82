@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent Shopping Assistant</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { text-align: center; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to your AI Shopping Assistant</h1>
+        <p>Click the chat icon in the bottom right to start shopping!</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/gh/logspace-ai/langflow-embedded-chat@v1.0.7/dist/build/static/js/bundle.min.js"></script>
+    
+    <langflow-chat
+        window_title="Shopping Assistant"
+        flow_id="497837db-2331-441c-bcdd-88e652728e3e"
+        host_url="http://localhost:7860"
+        api_key="sk-vdlyqMmh3ZkTY8xYDvVy4UGPJ9qstkXMeGvs6nLpUJE">
+    </langflow-chat>
+</body>
+</html>
