@@ -88,7 +88,9 @@ The agent operates through a sophisticated node-based workflow that manages the 
 **Sampada Akkar** 
 
 * 
-**Mentor:** Mr. Deepneel Majumdar 
+**Mentor:** Mr. Deepneel Majumdar
+
+**college Mentor:** Mr.shrikant Dhamdhere
 
 **Department:** Artificial Intelligence and Data Science, Semester 4 **College:** Marathwada Mitra Mandal’s Institute of Technology, Pune 
 ---
