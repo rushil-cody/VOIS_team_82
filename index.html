@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BuyWise – Agentic AI Buying Assistant</title>
+    <meta name="description" content="Multi-agent AI buying assistant that searches across multiple e-commerce websites to find the best product for you." />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM UMD -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX in-browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      * { font-family: 'Inter', system-ui, sans-serif; }
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+      .shimmer {
+        background: linear-gradient(90deg, rgba(56,189,248,0.05) 25%, rgba(56,189,248,0.15) 50%, rgba(56,189,248,0.05) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 2s infinite;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+      @keyframes pulse-dot {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+      .pulse-dot { animation: pulse-dot 1.2s ease-in-out infinite; }
+      .platform-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.025em;
+        text-transform: uppercase;
+      }
+      .platform-amazon { background: rgba(255,153,0,0.15); color: #f59e0b; border: 1px solid rgba(255,153,0,0.3); }
+      .platform-flipkart { background: rgba(47,126,216,0.15); color: #60a5fa; border: 1px solid rgba(47,126,216,0.3); }
+      .platform-croma { background: rgba(0,193,120,0.15); color: #34d399; border: 1px solid rgba(0,193,120,0.3); }
+      .platform-reliance { background: rgba(220,38,38,0.15); color: #f87171; border: 1px solid rgba(220,38,38,0.3); }
+      .platform-myntra { background: rgba(236,72,153,0.15); color: #f472b6; border: 1px solid rgba(236,72,153,0.3); }
+      .platform-default { background: rgba(148,163,184,0.15); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+    </style>
+  </head>
+  <body class="bg-slate-950 text-slate-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect, useRef } = React;
+
+      function getPlatformClass(platform) {
+        const p = (platform || "").toLowerCase();
+        if (p.includes("amazon")) return "platform-amazon";
+        if (p.includes("flipkart")) return "platform-flipkart";
+        if (p.includes("croma")) return "platform-croma";
+        if (p.includes("reliance")) return "platform-reliance";
+        if (p.includes("myntra") || p.includes("ajio") || p.includes("nykaa")) return "platform-myntra";
+        return "platform-default";
+      }
+
+      function PlatformBadge({ platform }) {
+        return (
+          <span className={`platform-badge ${getPlatformClass(platform)}`}>
+            {platform}
+          </span>
+        );
+      }
+
+      function WeightSlider({ label, value, onChange, color, icon }) {
+        return (
+          <div className="flex flex-col space-y-1">
+            <div className="flex justify-between text-xs uppercase tracking-wide text-slate-300">
+              <span className="flex items-center gap-1.5">
+                <span>{icon}</span>
+                <span>{label}</span>
+              </span>
+              <span className="font-mono text-sky-400">{value.toFixed(2)}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={value}
+              onChange={(e) => onChange(parseFloat(e.target.value))}
+              className={`w-full accent-${color}-400`}
+            />
+          </div>
+        );
+      }
+
+      function AgentProgressBar({ loading }) {
+        const stages = [
+          { icon: "🌐", label: "Searching websites", delay: 0 },
+          { icon: "📦", label: "Retrieving products", delay: 1500 },
+          { icon: "💬", label: "Analyzing reviews", delay: 3500 },
+          { icon: "💰", label: "Evaluating prices", delay: 5000 },
+          { icon: "⚖️", label: "Scoring & ranking", delay: 6500 },
+          { icon: "🎯", label: "Selecting top picks", delay: 7500 },
+          { icon: "🧾", label: "Generating explanation", delay: 8500 },
+        ];
+
+        const [activeStage, setActiveStage] = useState(0);
+
+        useEffect(() => {
+          if (!loading) {
+            setActiveStage(0);
+            return;
+          }
+
+          const timers = stages.map((stage, index) =>
+            setTimeout(() => setActiveStage(index), stage.delay)
+          );
+
+          return () => timers.forEach(clearTimeout);
+        }, [loading]);
+
+        if (!loading) return null;
+
+        return (
+          <div className="bg-slate-900/70 border border-slate-700/60 rounded-2xl p-5 fade-in">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-2 h-2 rounded-full bg-sky-400 pulse-dot"></div>
+              <span className="text-xs uppercase tracking-widest text-sky-300 font-semibold">Agent Pipeline Active</span>
+            </div>
+            <div className="grid grid-cols-7 gap-2">
+              {stages.map((stage, index) => (
+                <div
+                  key={index}
+                  className={`flex flex-col items-center text-center gap-1.5 p-2 rounded-xl transition-all duration-500
+                    ${index < activeStage ? "opacity-40" : ""}
+                    ${index === activeStage ? "bg-sky-500/10 border border-sky-500/30 shimmer" : ""}
+                    ${index > activeStage ? "opacity-20" : ""}`}
+                >
+                  <span className="text-xl">{stage.icon}</span>
+                  <span className="text-[10px] text-slate-300 leading-tight">{stage.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      function PriceChart({ product }) {
+        const canvasRef = useRef(null);
+        const chartRef = useRef(null);
+
+        useEffect(() => {
+          if (!product || !product.historical_price) return;
+          const ctx = canvasRef.current.getContext("2d");
+
+          if (chartRef.current) {
+            chartRef.current.destroy();
+          }
+
+          chartRef.current = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: product.historical_price.map((_, i) => `T-${product.historical_price.length - i}`),
+              datasets: [
+                {
+                  label: "Historical Price (₹)",
+                  data: product.historical_price,
+                  borderColor: "#38bdf8",
+                  backgroundColor: "rgba(56, 189, 248, 0.1)",
+                  tension: 0.4,
+                  fill: true,
+                  pointBackgroundColor: "#38bdf8",
+                  pointBorderColor: "#0f172a",
+                  pointBorderWidth: 2,
+                  pointRadius: 4
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: {
+                  labels: { color: "#e5e7eb", font: { family: "Inter" } }
+                }
+              },
+              scales: {
+                x: {
+                  ticks: { color: "#9ca3af", font: { family: "Inter" } },
+                  grid: { color: "rgba(148,163,184,0.08)" }
+                },
+                y: {
+                  ticks: {
+                    color: "#9ca3af",
+                    font: { family: "Inter" },
+                    callback: (val) => "₹" + val.toLocaleString()
+                  },
+                  grid: { color: "rgba(148,163,184,0.08)" }
+                }
+              }
+            }
+          });
+
+          return () => {
+            if (chartRef.current) chartRef.current.destroy();
+          };
+        }, [product]);
+
+        if (!product) return null;
+
+        return (
+          <div className="bg-slate-900/70 border border-slate-700/60 rounded-2xl p-4 h-full">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-sm">📈</span>
+              <h3 className="text-sm font-semibold text-sky-300">
+                Price Trend
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400 mb-2">{product.title}</p>
+            <canvas ref={canvasRef} height="180"></canvas>
+          </div>
+        );
+      }
+
+      function TopPickCard({ emoji, title, item, accentColor }) {
+        if (!item) return null;
+        const borderColors = {
+          gold: "border-amber-500/40 hover:border-amber-500/60",
+          green: "border-emerald-500/40 hover:border-emerald-500/60",
+          purple: "border-violet-500/40 hover:border-violet-500/60"
+        };
+        const gradients = {
+          gold: "from-amber-500/10 to-transparent",
+          green: "from-emerald-500/10 to-transparent",
+          purple: "from-violet-500/10 to-transparent"
+        };
+        return (
+          <div className={`bg-gradient-to-b ${gradients[accentColor] || ""} bg-slate-900/70 border ${borderColors[accentColor] || "border-slate-700/60"} rounded-2xl p-4 flex flex-col space-y-3 transition-all duration-300 fade-in`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-2xl">{emoji}</span>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
+                    {title}
+                  </div>
+                  <div className="font-semibold text-sm mt-0.5">{item.title}</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sky-300 font-mono text-[10px] uppercase tracking-wider">
+                  Smart Score
+                </div>
+                <div className="text-xl font-bold text-sky-400">
+                  {item.smart_score}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <PlatformBadge platform={item.platform} />
+              {item.product_url && item.product_url !== "#" && (
+                <a href={item.product_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-sky-400 hover:text-sky-300 underline underline-offset-2">
+                  View on {item.platform} →
+                </a>
+              )}
+            </div>
+            {item.why_selected && (
+              <div className="space-y-1.5">
+                {item.why_selected.map((reason, idx) => (
+                  <div key={idx} className="text-xs text-slate-300 flex items-start">
+                    <span className="mr-1.5 text-sky-400">✓</span>
+                    <span>{reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {item.trade_off && (
+              <div className="text-[11px] text-slate-400 italic border-t border-slate-800 pt-2">
+                ⚖️ {item.trade_off}
+              </div>
+            )}
+            <div className="flex justify-between text-xs text-slate-400 pt-1 border-t border-slate-800/50">
+              <span className="font-semibold text-slate-200">₹{item.price.toLocaleString()}</span>
+              <span>⭐ {item.seller_rating}</span>
+              <span>🚚 {item.delivery_days}d</span>
+              <span>🛡️ {item.warranty}</span>
+            </div>
+          </div>
+        );
+      }
+
+      function App() {
+        const [query, setQuery] = useState("");
+        const [weights, setWeights] = useState({
+          price: 0.3,
+          reviews: 0.3,
+          rating: 0.2,
+          delivery: 0.2
+        });
+        const [loading, setLoading] = useState(false);
+        const [error, setError] = useState(null);
+        const [data, setData] = useState(null);
+        const [selectedProductId, setSelectedProductId] = useState(null);
+
+        const handleSearch = async (e) => {
+          e.preventDefault();
+          if (!query.trim()) return;
+          setLoading(true);
+          setError(null);
+          setData(null);
+
+          try {
+            const res = await fetch("/api/recommendations", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query, weights })
+            });
+            if (!res.ok) {
+              throw new Error("Request failed");
+            }
+            const json = await res.json();
+            setData(json);
+            if (json.products && json.products.length) {
+              setSelectedProductId(json.products[0].id);
+            }
+          } catch (err) {
+            console.error(err);
+            setError("Something went wrong. Please try again.");
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        const selectedProduct =
+          data?.products?.find((p) => p.id === selectedProductId) || null;
+
+        // Collect unique platforms from results
+        const platforms = data?.products
+          ? [...new Set(data.products.map((p) => p.platform))]
+          : [];
+
+        return (
+          <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900">
+            <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+              {/* Header */}
+              <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-300 text-xs font-medium mb-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Agentic AI • Multi‑Agent Orchestrated</span>
+                  </div>
+                  <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-sky-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">
+                    BuyWise
+                  </h1>
+                  <p className="text-sm text-slate-400 mt-1 max-w-lg">
+                    AI agents search across <strong className="text-slate-200">Amazon, Flipkart, Croma, Reliance Digital</strong> and more — to find your perfect product.
+                  </p>
+                </div>
+                <div className="text-xs text-slate-500 md:text-right space-y-0.5">
+                  <div className="font-medium text-slate-400">Multi-website search powered by AI agents</div>
+                  <div>7 specialized agents • Any product category</div>
+                </div>
+              </header>
+
+              {/* Search + Weights */}
+              <section className="grid md:grid-cols-3 gap-4">
+                <form
+                  onSubmit={handleSearch}
+                  className="md:col-span-2 bg-slate-900/70 border border-slate-700/60 rounded-2xl p-5 space-y-3"
+                >
+                  <div className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-1">
+                    🔍 Search any product
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="e.g. best wireless earbuds under 3000, gaming laptop, running shoes..."
+                      className="flex-1 bg-slate-950/60 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 placeholder:text-slate-500 transition"
+                    />
+                    <button
+                      type="submit"
+                      disabled={loading || !query.trim()}
+                      className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-sm font-semibold hover:from-sky-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-sky-500/20"
+                    >
+                      {loading ? (
+                        <span className="flex items-center gap-2">
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Agents working...
+                        </span>
+                      ) : "Search & Optimize"}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Agents will search across multiple e-commerce websites in real-time and optimize recommendations for your preferences.
+                  </p>
+                </form>
+
+                <div className="bg-slate-900/70 border border-slate-700/60 rounded-2xl p-5 space-y-3">
+                  <div className="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-1">
+                    ⚖️ Preference weights
+                  </div>
+                  <WeightSlider
+                    label="Price"
+                    icon="💰"
+                    color="emerald"
+                    value={weights.price}
+                    onChange={(v) => setWeights((w) => ({ ...w, price: v }))}
+                  />
+                  <WeightSlider
+                    label="Reviews"
+                    icon="💬"
+                    color="sky"
+                    value={weights.reviews}
+                    onChange={(v) => setWeights((w) => ({ ...w, reviews: v }))}
+                  />
+                  <WeightSlider
+                    label="Rating"
+                    icon="⭐"
+                    color="violet"
+                    value={weights.rating}
+                    onChange={(v) => setWeights((w) => ({ ...w, rating: v }))}
+                  />
+                  <WeightSlider
+                    label="Delivery"
+                    icon="🚚"
+                    color="amber"
+                    value={weights.delivery}
+                    onChange={(v) => setWeights((w) => ({ ...w, delivery: v }))}
+                  />
+                </div>
+              </section>
+
+              {/* Agent Progress */}
+              <AgentProgressBar loading={loading} />
+
+              {error && (
+                <div className="bg-rose-900/40 border border-rose-700/70 text-rose-100 text-xs rounded-xl px-4 py-3 flex items-center gap-2">
+                  <span>⚠️</span> {error}
+                </div>
+              )}
+
+              {/* Results */}
+              {data && (
+                <section className="space-y-5 fade-in">
+                  {/* Platforms searched */}
+                  {platforms.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] uppercase tracking-widest text-slate-500 font-semibold">Sources:</span>
+                      {platforms.map((p) => (
+                        <PlatformBadge key={p} platform={p} />
+                      ))}
+                      <span className="text-[11px] text-slate-500 ml-1">• {data.products?.length || 0} products found</span>
+                    </div>
+                  )}
+
+                  {/* Top 3 Picks */}
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <TopPickCard
+                      emoji="🥇"
+                      title="Best Overall"
+                      item={data.topPicks?.best_overall}
+                      accentColor="gold"
+                    />
+                    <TopPickCard
+                      emoji="💰"
+                      title="Best Budget"
+                      item={data.topPicks?.best_budget}
+                      accentColor="green"
+                    />
+                    <TopPickCard
+                      emoji="⭐"
+                      title="Premium Pick"
+                      item={data.topPicks?.premium_pick}
+                      accentColor="purple"
+                    />
+                  </div>
+
+                  {/* Table + Chart */}
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2 bg-slate-900/70 border border-slate-700/60 rounded-2xl overflow-hidden">
+                      <div className="px-4 py-3 flex items-center justify-between border-b border-slate-800/70">
+                        <div className="text-xs uppercase tracking-widest text-slate-400 font-semibold">
+                          📊 Comparison table
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          Click a row to inspect price trend
+                        </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-slate-900/90 border-b border-slate-800">
+                            <tr className="text-slate-400 text-[10px] uppercase tracking-widest">
+                              <th className="px-3 py-2.5 text-left">#</th>
+                              <th className="px-3 py-2.5 text-left">Product</th>
+                              <th className="px-3 py-2.5 text-left">Platform</th>
+                              <th className="px-3 py-2.5 text-right">Price</th>
+                              <th className="px-3 py-2.5 text-right">Rating</th>
+                              <th className="px-3 py-2.5 text-right">Delivery</th>
+                              <th className="px-3 py-2.5 text-right">Score</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {data.products?.map((p) => (
+                              <tr
+                                key={p.id}
+                                className={`border-b border-slate-800/50 cursor-pointer hover:bg-sky-500/5 transition-colors ${
+                                  p.id === selectedProductId
+                                    ? "bg-sky-500/10 border-l-2 border-l-sky-400"
+                                    : ""
+                                }`}
+                                onClick={() => setSelectedProductId(p.id)}
+                              >
+                                <td className="px-3 py-2.5 text-slate-500 font-mono">
+                                  {p.rank || "–"}
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-medium text-slate-200">
+                                      {p.title}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 mt-0.5">
+                                      {p.warranty}
+                                      {p.price_intel?.buy_recommendation && (
+                                        <span className={`ml-2 font-semibold ${p.price_intel.buy_recommendation === "Buy" ? "text-emerald-400" : p.price_intel.buy_recommendation === "Wait" ? "text-amber-400" : "text-slate-400"}`}>
+                                          {p.price_intel.buy_recommendation === "Buy" ? "🟢 Buy now" : p.price_intel.buy_recommendation === "Wait" ? "🟡 Wait" : "⚪ Neutral"}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <PlatformBadge platform={p.platform} />
+                                </td>
+                                <td className="px-3 py-2.5 text-right">
+                                  <div className="flex flex-col items-end">
+                                    <span className="font-semibold text-slate-200 tabular-nums">₹{p.price.toLocaleString()}</span>
+                                    {p.original_price > p.price && (
+                                      <span className="text-[10px] text-slate-500 line-through">₹{p.original_price.toLocaleString()}</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-slate-300">
+                                  ⭐ {p.seller_rating}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-slate-300">
+                                  {p.delivery_days}d
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-bold text-sky-400 tabular-nums">
+                                  {p.smart_score}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <PriceChart product={selectedProduct} />
+                  </div>
+
+                  {/* Explanation Section */}
+                  {data.explanation && data.explanation.reasoning && (
+                    <div className="bg-slate-900/70 border border-slate-700/60 rounded-2xl p-5 fade-in">
+                      <h3 className="text-sm font-semibold mb-3 text-slate-200 flex items-center gap-2">
+                        <span>🧾</span> Why these recommendations?
+                      </h3>
+                      <ul className="space-y-2.5">
+                        {data.explanation.reasoning.map((reason, idx) => (
+                          <li
+                            key={idx}
+                            className="text-xs text-slate-300 flex items-start"
+                          >
+                            <span className="mr-2 text-sky-400 mt-0.5 flex-shrink-0">▸</span>
+                            <span>{reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* Footer */}
+              <footer className="text-center py-6 border-t border-slate-800/50 mt-8">
+                <p className="text-[11px] text-slate-600">
+                  BuyWise • Multi-Agent AI Buying Assistant • Powered by 7 specialized agents
+                </p>
+              </footer>
+            </div>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
