@@ -1,0 +1,90 @@
+{
+  "productName": "BuyWise",
+  "type": "Multi-Agent AI Buying Assistant",
+  "goal": "Reduce decision fatigue in e-commerce by aggregating product data and generating personalized recommendations using an agentic AI system.",
+  "mvpScope": {
+    "acceptsProductSearchInput": true,
+    "retrievesProductData": true,
+    "summarizesReviews": true,
+    "analyzesPriceIntelligence": true,
+    "appliesPersonalizedScoring": true,
+    "recommendsTop3Choices": true
+  },
+  "agents": [
+    {
+      "id": "supervisor",
+      "name": "Supervisor Agent",
+      "role": "Orchestrator",
+      "responsibilities": [
+        "Understand user query",
+        "Trigger appropriate agents in sequence",
+        "Aggregate structured outputs",
+        "Return final formatted recommendation"
+      ],
+      "systemPrompt": "You are a Supervisor Agent. Break user query into structured tasks. Call appropriate agents in correct sequence. Return final structured recommendation. Do not generate raw product data yourself."
+    },
+    {
+      "id": "product-retrieval",
+      "name": "Product Retrieval Agent",
+      "role": "Fetch product data from APIs or vector DB",
+      "outputSchema": {
+        "platform": "string",
+        "price": "number",
+        "rating": "number",
+        "delivery_days": "number",
+        "warranty": "string"
+      },
+      "systemPrompt": "Retrieve structured product data: Platform, Price, Seller rating, Delivery time, Warranty. Return clean JSON only."
+    },
+    {
+      "id": "review-intelligence",
+      "name": "Review Intelligence Agent",
+      "role": "Summarizes reviews into insights",
+      "outputSchema": {
+        "pros": "string[]",
+        "cons": "string[]",
+        "sentiment_score": "number",
+        "common_issues": "string[]"
+      },
+      "systemPrompt": "Extract: Top 5 Pros, Top 5 Cons, Sentiment score (0–10), Common complaints. Return structured output only."
+    },
+    {
+      "id": "price-intelligence",
+      "name": "Price Intelligence Agent",
+      "role": "Evaluates discount authenticity and timing",
+      "outputSchema": {
+        "discount_authentic": "boolean",
+        "price_score": "number",
+        "buy_recommendation": "string"
+      },
+      "systemPrompt": "Analyze current vs historical price. Score price fairness (0–10). State if discount is genuine. Recommend buy or wait."
+    },
+    {
+      "id": "scoring-personalization",
+      "name": "Scoring & Personalization Agent",
+      "role": "Applies weighted decision logic",
+      "formula": "Smart Score = (price_score * weight_price) + (sentiment_score * weight_reviews) + (rating_score * weight_rating) + (delivery_score * weight_delivery)"
+    },
+    {
+      "id": "decision-simplification",
+      "name": "Decision Simplification Agent",
+      "role": "Reduces choice overload to 3 options",
+      "outputFormat": ["Best Overall", "Best Budget", "Premium Choice"],
+      "systemPrompt": "Select only 3 optimized options: Best Overall, Best Budget, Premium Option. Explain briefly why each was selected."
+    }
+  ],
+  "weightsDefault": {
+    "price": 0.3,
+    "reviews": 0.3,
+    "rating": 0.2,
+    "delivery": 0.2
+  }
+}
+
+
+
+
+
+
+
+
